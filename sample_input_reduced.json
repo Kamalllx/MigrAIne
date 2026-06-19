@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.0",
+  "migration_id": "mig-20260401-sample-reduced",
+  "source": {
+    "provider": "gcp",
+    "project_id": "sample-project-prod",
+    "primary_region": "us-central1"
+  },
+  "target": {
+    "provider": "aws",
+    "primary_region": "us-east-1",
+    "region_az_mapping": {
+      "us-central1": "us-east-1",
+      "us-central1-a": "us-east-1a"
+    }
+  },
+  "global_constraints": {
+    "max_downtime_minutes": 30,
+    "cutover_strategy": "blue_green"
+  },
+  "resources": [
+    {
+      "id": "vpc-main",
+      "name": "vpc-main",
+      "category": "network",
+      "target_service_code": "AmazonVPC",
+      "target_resource_type": "aws_vpc",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "cidr_block": "10.0.0.0/16",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true
+      },
+      "dependencies": []
+    },
+    {
+      "id": "subnet-app",
+      "name": "subnet-app",
+      "category": "network",
+      "target_service_code": "AmazonVPC",
+      "target_resource_type": "aws_subnet",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "private",
+      "subnet_ref": "vpc-main",
+      "security_group_profile": "sg-app",
+      "spec": {
+        "cidr_block": "10.0.1.0/24",
+        "map_public_ip_on_launch": false,
+        "availability_zone": "us-east-1a"
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "contained_in",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sg-app",
+      "name": "sg-app",
+      "category": "network",
+      "target_service_code": "AmazonEC2",
+      "target_resource_type": "aws_security_group",
+      "private_or_public": "private",
+      "spec": {
+        "ingress": [
+          {
+            "protocol": "tcp",
+            "from_port": 80,
+            "to_port": 80,
+            "sources": [
+              "0.0.0.0/0"
+            ],
+            "description": "HTTP"
+          }
+        ],
+        "egress": [
+          {
+            "protocol": "-1",
+            "from_port": 0,
+            "to_port": 65535,
+            "destinations": [
+              "0.0.0.0/0"
+            ],
+            "description": "All outbound"
+          }
+        ]
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "belongs_to",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "vm-web-001",
+      "source_native_id": "projects/sample-project-prod/zones/us-central1-a/instances/web-server-001",
+      "name": "web-server-001",
+      "category": "compute",
+      "target_service_code": "AmazonEC2",
+      "target_resource_type": "aws_instance",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-app",
+      "security_group_profile": "sg-app",
+      "spec": {
+        "instance_type": "t3.medium",
+        "ami": "ami-0c55b159cbfafe1f0",
+        "root_volume_size_gb": 30,
+        "root_volume_type": "gp3",
+        "root_volume_encrypted": true
+      },
+      "dependencies": [
+        {
+          "target_id": "subnet-app",
+          "relationship": "runs_on",
+          "required": true
+        },
+        {
+          "target_id": "sg-app",
+          "relationship": "secured_by",
+          "required": true
+        },
+        {
+          "target_id": "postgres-main",
+          "relationship": "connects_to",
+          "required": true,
+          "protocol": "tcp",
+          "port": 5432
+        }
+      ]
+    },
+    {
+      "id": "bucket-assets",
+      "source_native_id": "projects/sample-project-prod/buckets/assets-prod",
+      "name": "assets-prod",
+      "category": "storage",
+      "target_service_code": "AmazonS3",
+      "target_resource_type": "aws_s3_bucket",
+      "source_region": "us",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "bucket_name": "assets-prod",
+        "versioning_enabled": true,
+        "encryption": "AES256",
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "ignore_public_acls": true,
+        "restrict_public_buckets": true
+      },
+      "dependencies": []
+    },
+    {
+      "id": "postgres-main",
+      "source_native_id": "projects/sample-project-prod/locations/us-central1/instances/postgres-main",
+      "name": "postgres-main",
+      "category": "database",
+      "target_service_code": "AmazonRDS",
+      "target_resource_type": "aws_db_instance",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-app",
+      "security_group_profile": "sg-app",
+      "spec": {
+        "engine": "postgres",
+        "engine_version": "14.9",
+        "instance_class": "db.t3.medium",
+        "allocated_storage_gb": 100,
+        "storage_type": "gp3",
+        "storage_encrypted": true,
+        "multi_az": true,
+        "publicly_accessible": false,
+        "port": 5432,
+        "backup_retention_period": 7
+      },
+      "dependencies": [
+        {
+          "target_id": "subnet-app",
+          "relationship": "runs_on",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "function-order-processor",
+      "name": "process-order-events",
+      "category": "serverless",
+      "target_service_code": "AWSLambda",
+      "target_resource_type": "aws_lambda_function",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-app",
+      "security_group_profile": "sg-app",
+      "spec": {
+        "function_name": "process-order-events",
+        "runtime": "python3.11",
+        "handler": "lambda_function.lambda_handler",
+        "memory_size": 512,
+        "timeout": 30
+      },
+      "dependencies": [
+        {
+          "target_id": "queue-order-events",
+          "relationship": "triggered_by",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "queue-order-events",
+      "name": "order-events",
+      "category": "messaging",
+      "target_service_code": "AmazonSQS",
+      "target_resource_type": "aws_sqs_queue",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "name": "order-events",
+        "visibility_timeout_seconds": 60,
+        "message_retention_seconds": 345600
+      },
+      "dependencies": []
+    }
+  ],
+  "migration_batches": [
+    [
+      "vpc-main"
+    ],
+    [
+      "subnet-app",
+      "sg-app"
+    ],
+    [
+      "bucket-assets",
+      "postgres-main",
+      "queue-order-events"
+    ],
+    [
+      "vm-web-001",
+      "function-order-processor"
+    ]
+  ]
+}

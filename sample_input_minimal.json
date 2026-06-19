@@ -1,0 +1,104 @@
+{
+  "migration_id": "mig-20260401-minimal",
+  "source": {
+    "provider": "gcp",
+    "region": "us-central1"
+  },
+  "target": {
+    "provider": "aws",
+    "region": "us-east-1"
+  },
+  "resources": [
+    {
+      "id": "vpc-main",
+      "category": "network",
+      "service": "AmazonVPC",
+      "config": {
+        "cidr": "10.0.0.0/16",
+        "dns_support": true
+      }
+    },
+    {
+      "id": "subnet-app",
+      "category": "network",
+      "service": "AmazonVPC",
+      "depends_on": ["vpc-main"],
+      "config": {
+        "cidr": "10.0.1.0/24",
+        "availability_zone": "us-east-1a"
+      }
+    },
+    {
+      "id": "sg-app",
+      "category": "network",
+      "service": "AmazonEC2",
+      "depends_on": ["vpc-main"],
+      "config": {
+        "ingress_http": true,
+        "egress_all": true
+      }
+    },
+    {
+      "id": "vm-web",
+      "source_native_id": "projects/sample-project/zones/us-central1-a/instances/web-vm",
+      "category": "compute",
+      "service": "AmazonEC2",
+      "depends_on": ["subnet-app", "sg-app"],
+      "config": {
+        "instance_type": "t3.medium",
+        "volume_gb": 30,
+        "encrypted": true
+      }
+    },
+    {
+      "id": "bucket-assets",
+      "category": "storage",
+      "service": "AmazonS3",
+      "config": {
+        "versioning": true,
+        "encryption": "AES256",
+        "public_access_block": true
+      }
+    },
+    {
+      "id": "postgres-main",
+      "source_native_id": "projects/sample-project/locations/us-central1/instances/postgres-main",
+      "category": "database",
+      "service": "AmazonRDS",
+      "depends_on": ["subnet-app"],
+      "config": {
+        "engine": "postgres",
+        "engine_version": "14.9",
+        "instance_class": "db.t3.medium",
+        "storage_gb": 100,
+        "encrypted": true,
+        "backup_retention_days": 7
+      }
+    },
+    {
+      "id": "function-order",
+      "category": "serverless",
+      "service": "AWSLambda",
+      "depends_on": ["queue-events"],
+      "config": {
+        "runtime": "python3.11",
+        "memory_mb": 512,
+        "timeout_sec": 30
+      }
+    },
+    {
+      "id": "queue-events",
+      "category": "messaging",
+      "service": "AmazonSQS",
+      "config": {
+        "visibility_timeout_sec": 60
+      }
+    }
+  ],
+  "batches": [
+    ["vpc-main"],
+    ["subnet-app", "sg-app"],
+    ["bucket-assets", "postgres-main", "queue-events"],
+    ["vm-web", "function-order"]
+  ]
+}

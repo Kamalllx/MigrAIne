@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MigrAIne Blueprint Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-1: #09171a;
+            --bg-2: #1f322e;
+            --panel: rgba(11, 24, 22, 0.76);
+            --panel-strong: rgba(7, 18, 16, 0.9);
+            --line: rgba(156, 222, 198, 0.2);
+            --text: #edf8f2;
+            --muted: #a9c8bb;
+            --accent: #f8d66e;
+            --accent-2: #60d3ab;
+            --danger: #ff8f7f;
+            --shadow: 0 22px 45px rgba(0, 0, 0, 0.32);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Archivo", sans-serif;
+            background:
+                radial-gradient(circle at 85% 10%, rgba(248, 214, 110, 0.18), transparent 36%),
+                radial-gradient(circle at 18% 12%, rgba(96, 211, 171, 0.18), transparent 32%),
+                linear-gradient(145deg, var(--bg-1), var(--bg-2));
+        }
+
+        .grain {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.035) 0.65px, transparent 0.65px);
+            background-size: 2.8px 2.8px;
+            opacity: 0.52;
+        }
+
+        .shell {
+            max-width: 1560px;
+            margin: 0 auto;
+            padding: 20px;
+            animation: reveal 500ms ease;
+        }
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero {
+            border: 1px solid var(--line);
+            background: linear-gradient(120deg, rgba(10, 25, 23, 0.92), rgba(13, 30, 27, 0.82));
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            padding: 18px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .hero-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .title {
+            margin: 0;
+            font-size: clamp(1.55rem, 2.2vw, 2.2rem);
+            letter-spacing: 0.01em;
+        }
+
+        .subtitle {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .status {
+            border-radius: 999px;
+            border: 1px solid rgba(96, 211, 171, 0.45);
+            background: rgba(96, 211, 171, 0.15);
+            color: var(--accent-2);
+            font-size: 0.84rem;
+            padding: 8px 12px;
+            white-space: nowrap;
+        }
+
+        .controls {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 1.2fr repeat(5, minmax(120px, 1fr)) auto;
+        }
+
+        input,
+        select,
+        button {
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: rgba(10, 24, 22, 0.76);
+            color: var(--text);
+            padding: 10px 12px;
+            font-family: "Archivo", sans-serif;
+            font-size: 0.9rem;
+        }
+
+        input::placeholder {
+            color: var(--muted);
+        }
+
+        button {
+            border: none;
+            background: linear-gradient(135deg, var(--accent), #ebb449);
+            color: #15221f;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 120ms ease, filter 120ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.04);
+        }
+
+        .cards {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(5, minmax(150px, 1fr));
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 11px;
+            background: rgba(17, 35, 31, 0.48);
+        }
+
+        .card-label {
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.74rem;
+        }
+
+        .card-value {
+            margin-top: 6px;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .error {
+            color: var(--danger);
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+
+        .dashboard {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 12px;
+            align-items: start;
+        }
+
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            padding: 13px;
+        }
+
+        .panel h3 {
+            margin: 0 0 10px;
+            color: var(--muted);
+            font-size: 0.88rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .kv {
+            display: grid;
+            gap: 7px;
+            margin: 0;
+        }
+
+        .kv-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.86rem;
+        }
+
+        .kv-row span:first-child {
+            color: var(--muted);
+        }
+
+        .bar-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .bar-item {
+            display: grid;
+            gap: 4px;
+        }
+
+        .bar-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .bar-track {
+            height: 7px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(95deg, var(--accent-2), var(--accent));
+        }
+
+        .plain-list {
+            margin: 0;
+            padding-left: 16px;
+            display: grid;
+            gap: 6px;
+            font-size: 0.84rem;
+            color: var(--text);
+        }
+
+        .workspace {
+            display: grid;
+            gap: 12px;
+        }
+
+        .table-wrap {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: auto;
+            max-height: 360px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--panel-strong);
+            color: var(--muted);
+            text-align: left;
+            border-bottom: 1px solid var(--line);
+            padding: 9px 8px;
+        }
+
+        tbody td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        tbody tr {
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background: rgba(96, 211, 171, 0.09);
+        }
+
+        tbody tr.active {
+            background: rgba(248, 214, 110, 0.12);
+        }
+
+        .hint {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .json-box {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(7, 18, 16, 0.82);
+            padding: 11px;
+            margin-top: 10px;
+            color: #dcf7eb;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 0.76rem;
+            white-space: pre;
+            max-height: 320px;
+            overflow: auto;
+        }
+
+        @media (max-width: 1220px) {
+            .controls {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .cards {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .shell {
+                padding: 12px;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <main class="shell">
+        <section class="hero">
+            <div class="hero-top">
+                <div>
+                    <h1 class="title">MigrAIne Blueprint Console</h1>
+                    <p class="subtitle">Plane-oriented migration context for GCP to AWS mapping</p>
+                </div>
+                <div class="status" id="status">Loading migration blueprint...</div>
+            </div>
+
+            <div class="controls">
+                <input id="search" type="text" placeholder="Search resource, type, intent, region, AWS family" />
+                <select id="plane-filter"><option value="">All planes</option></select>
+                <select id="category-filter"><option value="">All categories</option></select>
+                <select id="project-filter"><option value="">All project names</option></select>
+                <select id="type-filter"><option value="">All source types</option></select>
+                <select id="aws-filter"><option value="">All AWS families</option></select>
+                <button id="refresh-btn">Refresh</button>
+            </div>
+
+            <div class="cards">
+                <article class="card"><div class="card-label">Schema</div><div class="card-value" id="schema-version">-</div></article>
+                <article class="card"><div class="card-label">Resources</div><div class="card-value" id="total-resources">-</div></article>
+                <article class="card"><div class="card-label">Dependencies</div><div class="card-value" id="total-deps">-</div></article>
+                <article class="card"><div class="card-label">Planes</div><div class="card-value" id="total-planes">-</div></article>
+                <article class="card"><div class="card-label">Warnings</div><div class="card-value" id="total-warnings">-</div></article>
+            </div>
+
+            <div class="error" id="error"></div>
+        </section>
+
+        <section class="dashboard">
+            <aside class="stack">
+                <article class="panel">
+                    <h3>Project Context</h3>
+                    <div class="kv" id="project-kv"></div>
+                </article>
+
+                <article class="panel">
+                    <h3>Plane Distribution</h3>
+                    <div class="bar-list" id="plane-bars"></div>
+                </article>
+
+                <article class="panel">
+                    <h3>Control and Security</h3>
+                    <ul class="plain-list" id="control-list"></ul>
+                </article>
+
+                <article class="panel">
+                    <h3>Migration Constraints</h3>
+                    <div class="kv" id="constraint-kv"></div>
+                </article>
+            </aside>
+
+            <section class="workspace">
+                <article class="panel">
+                    <h3>Resource Catalog</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Project</th>
+                                    <th>Name</th>
+                                    <th>Source Type</th>
+                                    <th>Intent</th>
+                                    <th>Location</th>
+                                    <th>AWS Family</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resource-body"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint" id="resource-hint">Select a resource to inspect full context planes and constraints.</p>
+                </article>
+
+                <article class="panel">
+                    <h3>Dependencies</h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Target</th>
+                                    <th>Relationship</th>
+                                    <th>Protocol</th>
+                                    <th>Port</th>
+                                    <th>Required</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dependency-body"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint" id="dependency-hint">Showing dependency edges across the discovered resource graph.</p>
+                </article>
+
+                <article class="panel">
+                    <h3>Selected Payload</h3>
+                    <pre class="json-box" id="payload-json">No selection yet.</pre>
+                </article>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        const state = {
+            payload: null,
+            filteredResources: [],
+            selectedResourceId: null,
+        };
+
+        const dom = {
+            status: document.getElementById("status"),
+            error: document.getElementById("error"),
+            search: document.getElementById("search"),
+            plane: document.getElementById("plane-filter"),
+            category: document.getElementById("category-filter"),
+            project: document.getElementById("project-filter"),
+            type: document.getElementById("type-filter"),
+            aws: document.getElementById("aws-filter"),
+            refresh: document.getElementById("refresh-btn"),
+            schemaVersion: document.getElementById("schema-version"),
+            totalResources: document.getElementById("total-resources"),
+            totalDeps: document.getElementById("total-deps"),
+            totalPlanes: document.getElementById("total-planes"),
+            totalWarnings: document.getElementById("total-warnings"),
+            projectKv: document.getElementById("project-kv"),
+            planeBars: document.getElementById("plane-bars"),
+            controlList: document.getElementById("control-list"),
+            constraintKv: document.getElementById("constraint-kv"),
+            resourceBody: document.getElementById("resource-body"),
+            resourceHint: document.getElementById("resource-hint"),
+            dependencyBody: document.getElementById("dependency-body"),
+            dependencyHint: document.getElementById("dependency-hint"),
+            payloadJson: document.getElementById("payload-json"),
+        };
+
+        function setStatus(text, error = false) {
+            dom.status.textContent = text;
+            dom.status.style.borderColor = error
+                ? "rgba(255, 143, 127, 0.5)"
+                : "rgba(96, 211, 171, 0.45)";
+            dom.status.style.color = error ? "#ff8f7f" : "#60d3ab";
+            dom.status.style.background = error
+                ? "rgba(255, 143, 127, 0.15)"
+                : "rgba(96, 211, 171, 0.15)";
+        }
+
+        function setRows(container, rowsHtml, fallbackText, colSpan) {
+            container.innerHTML = rowsHtml;
+            if (!rowsHtml.trim()) {
+                container.innerHTML = `<tr><td colspan="${colSpan}" class="hint">${fallbackText}</td></tr>`;
+            }
+        }
+
+        function resetSelect(select, placeholder) {
+            select.innerHTML = "";
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = placeholder;
+            select.appendChild(option);
+        }
+
+        function hydrateFilters(payload) {
+            const resources = payload.resource_catalog || [];
+
+            resetSelect(dom.plane, "All planes");
+            resetSelect(dom.category, "All categories");
+            resetSelect(dom.project, "All project names");
+            resetSelect(dom.type, "All source types");
+            resetSelect(dom.aws, "All AWS families");
+
+            const planes = new Set();
+            const categories = new Set();
+            const projectNames = new Set();
+            const sourceTypes = new Set();
+            const awsFamilies = new Set();
+
+            resources.forEach((item) => {
+                if (item.plane) planes.add(item.plane);
+                if (item.category) categories.add(item.category);
+                if (item.project_name) projectNames.add(item.project_name);
+                if (item.source_type) sourceTypes.add(item.source_type);
+                (item.target_preferences?.aws_service_family || []).forEach((service) => {
+                    if (service) awsFamilies.add(service);
+                });
+            });
+
+            [...planes].sort().forEach((value) => dom.plane.appendChild(new Option(value, value)));
+            [...categories].sort().forEach((value) => dom.category.appendChild(new Option(value, value)));
+            [...projectNames].sort().forEach((value) => dom.project.appendChild(new Option(value, value)));
+            [...sourceTypes].sort().forEach((value) => dom.type.appendChild(new Option(value, value)));
+            [...awsFamilies].sort().forEach((value) => dom.aws.appendChild(new Option(value, value)));
+        }
+
+        function renderKv(container, rows) {
+            container.innerHTML = "";
+            rows.forEach(([key, value]) => {
+                const row = document.createElement("div");
+                row.className = "kv-row";
+                row.innerHTML = `<span>${key}</span><span>${value ?? "-"}</span>`;
+                container.appendChild(row);
+            });
+        }
+
+        function renderPlaneBars(byPlane) {
+            const entries = Object.entries(byPlane || {});
+            dom.planeBars.innerHTML = "";
+            if (!entries.length) {
+                dom.planeBars.innerHTML = "<p class='hint'>No plane summary available.</p>";
+                return;
+            }
+
+            const max = Math.max(...entries.map(([, count]) => Number(count || 0)), 1);
+            entries.forEach(([name, count]) => {
+                const item = document.createElement("div");
+                item.className = "bar-item";
+                item.innerHTML = `
+                    <div class="bar-meta"><span>${name}</span><span>${count}</span></div>
+                    <div class="bar-track"><div class="bar-fill" style="width:${(Number(count) / max) * 100}%"></div></div>
+                `;
+                dom.planeBars.appendChild(item);
+            });
+        }
+
+        function renderSummary(payload) {
+            const summary = payload.summary || {};
+            const project = payload.project || {};
+            const planes = payload.planes || {};
+            const constraints = payload.migration_constraints || {};
+
+            dom.schemaVersion.textContent = payload.schema_version || "-";
+            dom.totalResources.textContent = summary.total_resources ?? 0;
+            dom.totalDeps.textContent = summary.total_dependencies ?? 0;
+            dom.totalPlanes.textContent = Object.keys(payload.planes || {}).length;
+            dom.totalWarnings.textContent = (payload.discovery_warnings || []).length;
+
+            renderKv(dom.projectKv, [
+                ["Project ID", project.id],
+                ["Project Name", project.name],
+                ["Source", project.source_provider],
+                ["Target", project.target_provider],
+                ["Environment", project.environment],
+                ["Source Region", project.regions?.source_primary],
+                ["Target Region", project.regions?.target_primary],
+            ]);
+
+            renderPlaneBars(summary.by_plane || {});
+
+            const controlPlane = planes.control_plane || {};
+            const securityPlane = planes.security_plane || {};
+            const operationsPlane = planes.operations_plane || {};
+            dom.controlList.innerHTML = "";
+
+            const lines = [
+                `Policy constraints: ${controlPlane.policy_constraints_count ?? 0}`,
+                `Least privilege: ${String(controlPlane.iam_governance?.least_privilege ?? "unknown")}`,
+                `Enabled APIs: ${(controlPlane.api_enablement?.enabled_services || []).length}`,
+                `KMS keys tracked: ${(securityPlane.encryption?.kms_keys || []).length}`,
+                `WAF required: ${String(securityPlane.edge_protection?.waf_required_for_public_http ?? "unknown")}`,
+                `Centralized logging: ${String(operationsPlane.logging?.centralized ?? "unknown")}`,
+            ];
+
+            lines.forEach((line) => {
+                const li = document.createElement("li");
+                li.textContent = line;
+                dom.controlList.appendChild(li);
+            });
+
+            renderKv(dom.constraintKv, [
+                ["Downtime Tolerance", `${constraints.downtime_tolerance_minutes ?? "-"} minutes`],
+                ["Cutover Strategy", constraints.cutover_strategy],
+                ["Budget Tier", constraints.budget_tier],
+                ["Keep Service Names", String(constraints.must_keep_service_names)],
+            ]);
+        }
+
+        function applyFilters() {
+            if (!state.payload) {
+                state.filteredResources = [];
+                return;
+            }
+
+            const search = dom.search.value.trim().toLowerCase();
+            const selectedPlane = dom.plane.value;
+            const selectedCategory = dom.category.value;
+            const selectedProject = dom.project.value;
+            const selectedType = dom.type.value;
+            const selectedAws = dom.aws.value;
+
+            state.filteredResources = (state.payload.resource_catalog || []).filter((item) => {
+                if (selectedPlane && item.plane !== selectedPlane) return false;
+                if (selectedCategory && item.category !== selectedCategory) return false;
+                if (selectedProject && item.project_name !== selectedProject) return false;
+                if (selectedType && item.source_type !== selectedType) return false;
+
+                const awsFamily = item.target_preferences?.aws_service_family || [];
+                if (selectedAws && !awsFamily.includes(selectedAws)) return false;
+
+                if (!search) return true;
+
+                const haystack = [
+                    item.id,
+                    item.project_id,
+                    item.project_name,
+                    item.name,
+                    item.source_type,
+                    item.category,
+                    item.plane,
+                    item.what_it_does?.workload_intent,
+                    item.where_it_runs?.region,
+                    item.where_it_runs?.zone,
+                    item.where_it_runs?.location,
+                    awsFamily.join(" "),
+                ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                return haystack.includes(search);
+            });
+        }
+
+        function renderResources() {
+            const rows = state.filteredResources.map((item) => {
+                const awsFamily = (item.target_preferences?.aws_service_family || []).join(", ") || "Review Required";
+                const location = item.where_it_runs?.region || item.where_it_runs?.zone || item.where_it_runs?.location || "-";
+                const activeClass = item.id === state.selectedResourceId ? "active" : "";
+
+                return `
+                    <tr data-id="${item.id}" class="${activeClass}">
+                        <td>${item.id || "-"}</td>
+                        <td>${item.project_name || item.project_id || "-"}</td>
+                        <td>${item.name || "-"}</td>
+                        <td>${item.source_type || "-"}</td>
+                        <td>${item.what_it_does?.workload_intent || "-"}</td>
+                        <td>${location}</td>
+                        <td>${awsFamily}</td>
+                    </tr>
+                `;
+            }).join("");
+
+            setRows(dom.resourceBody, rows, "No resources match current filters.", 7);
+
+            dom.resourceBody.querySelectorAll("tr[data-id]").forEach((row) => {
+                row.addEventListener("click", () => {
+                    state.selectedResourceId = row.dataset.id;
+                    renderResources();
+                    renderSelection();
+                    renderDependencies();
+                });
+            });
+        }
+
+        function renderDependencies() {
+            const edges = state.payload?.dependencies || [];
+            let visibleEdges = edges;
+
+            if (state.selectedResourceId) {
+                visibleEdges = edges.filter((edge) =>
+                    edge.source_id === state.selectedResourceId || edge.target_id === state.selectedResourceId
+                );
+                dom.dependencyHint.textContent = `Showing dependencies connected to ${state.selectedResourceId}.`;
+            } else {
+                dom.dependencyHint.textContent = "Showing dependency edges across the discovered resource graph.";
+            }
+
+            const rows = visibleEdges.slice(0, 250).map((edge) => `
+                <tr>
+                    <td>${edge.source_id || "-"}</td>
+                    <td>${edge.target_id || "-"}</td>
+                    <td>${edge.relationship || "-"}</td>
+                    <td>${edge.protocol || "-"}</td>
+                    <td>${edge.port ?? "-"}</td>
+                    <td>${String(edge.required)}</td>
+                </tr>
+            `).join("");
+
+            setRows(dom.dependencyBody, rows, "No dependency edges available.", 6);
+        }
+
+        function renderSelection() {
+            if (!state.payload) {
+                dom.payloadJson.textContent = "No payload loaded.";
+                return;
+            }
+
+            if (!state.selectedResourceId) {
+                dom.resourceHint.textContent = "Select a resource to inspect full context planes and constraints.";
+                dom.payloadJson.textContent = "Select a resource to view the required migration fields.";
+                return;
+            }
+
+            const selected = (state.payload.resource_catalog || []).find((item) => item.id === state.selectedResourceId);
+            if (!selected) {
+                dom.resourceHint.textContent = "Selected resource is not visible with current filters.";
+                dom.payloadJson.textContent = "No resource selected.";
+                return;
+            }
+
+            const awsFamily = (selected.target_preferences?.aws_service_family || []).join(", ") || "Review Required";
+            dom.resourceHint.textContent = `${selected.name || selected.id} maps to ${awsFamily}`;
+            dom.payloadJson.textContent = JSON.stringify(selected, null, 2);
+        }
+
+        async function loadBlueprint(force = false) {
+            setStatus("Discovering migration blueprint...");
+            dom.error.textContent = "";
+
+            try {
+                const url = force ? "/api/inventory?refresh=1" : "/api/inventory";
+                const response = await fetch(url);
+                const payload = await response.json();
+
+                if (!response.ok || payload.status !== "ok") {
+                    throw new Error(payload.error || "Inventory request failed");
+                }
+
+                state.payload = payload;
+                state.selectedResourceId = null;
+
+                hydrateFilters(payload);
+                renderSummary(payload);
+                applyFilters();
+                renderResources();
+                renderDependencies();
+                renderSelection();
+
+                setStatus(
+                    `Loaded ${payload.summary?.total_resources ?? 0} resources across ${Object.keys(payload.planes || {}).length} planes`
+                );
+            } catch (error) {
+                setStatus("Blueprint load failed", true);
+                dom.error.textContent = String(error.message || error);
+            }
+        }
+
+        function onFilterChange() {
+            applyFilters();
+            renderResources();
+            renderSelection();
+            renderDependencies();
+        }
+
+        dom.search.addEventListener("input", onFilterChange);
+        dom.plane.addEventListener("change", onFilterChange);
+        dom.category.addEventListener("change", onFilterChange);
+        dom.project.addEventListener("change", onFilterChange);
+        dom.type.addEventListener("change", onFilterChange);
+        dom.aws.addEventListener("change", onFilterChange);
+        dom.refresh.addEventListener("click", () => loadBlueprint(true));
+
+        loadBlueprint(false);
+    </script>
+</body>
+</html>

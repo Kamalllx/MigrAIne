@@ -1,0 +1,592 @@
+{
+  "schema_version": "1.0",
+  "migration_id": "mig-20240401-ecommerce-prod",
+  "source": {
+    "provider": "gcp",
+    "project_id": "ecommerce-platform-prod",
+    "primary_region": "us-central1",
+    "secondary_regions": ["us-east1"]
+  },
+  "target": {
+    "provider": "aws",
+    "account_id": "123456789012",
+    "primary_region": "us-east-1",
+    "secondary_regions": ["us-west-2"],
+    "region_az_mapping": {
+      "us-central1": "us-east-1",
+      "us-central1-a": "us-east-1a",
+      "us-central1-b": "us-east-1b",
+      "us-central1-c": "us-east-1c",
+      "us-east1": "us-west-2",
+      "us-east1-b": "us-west-2a"
+    },
+    "fallback_az_policy": "any_available"
+  },
+  "global_constraints": {
+    "max_downtime_minutes": 30,
+    "cutover_window": "2024-04-15T02:00:00Z/2024-04-15T06:00:00Z",
+    "budget_ceiling_usd": 50000,
+    "compliance_frameworks": ["pci-dss", "soc2-type2"]
+  },
+  "network_policies": {
+    "egress_model": "nat_gateway",
+    "internet_access": "restricted",
+    "vpc_peering_required": false,
+    "transit_gateway_attachment": false
+  },
+  "resources": [
+    {
+      "id": "vpc-main",
+      "source_native_id": "projects/ecommerce-platform-prod/global/networks/vpc-prod",
+      "name": "vpc-prod",
+      "category": "network",
+      "target_service_code": "AmazonVPC",
+      "target_resource_type": "aws_vpc",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "cidr_block": "10.0.0.0/16",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true
+      },
+      "dependencies": [],
+      "security": {
+        "encryption_in_transit": true
+      }
+    },
+    {
+      "id": "subnet-web",
+      "source_native_id": "projects/ecommerce-platform-prod/regions/us-central1/subnetworks/subnet-web",
+      "name": "subnet-web",
+      "category": "network",
+      "target_service_code": "AmazonVPC",
+      "target_resource_type": "aws_subnet",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "private",
+      "subnet_ref": "vpc-main",
+      "security_group_profile": "web-tier",
+      "spec": {
+        "cidr_block": "10.0.1.0/24",
+        "map_public_ip_on_launch": false,
+        "availability_zone": "us-east-1a"
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "contained_in",
+          "required": true
+        }
+      ],
+      "network_routes": [
+        {
+          "destination": "0.0.0.0/0",
+          "target": "nat-gateway-main",
+          "internet_bound": true
+        }
+      ]
+    },
+    {
+      "id": "subnet-db",
+      "source_native_id": "projects/ecommerce-platform-prod/regions/us-central1/subnetworks/subnet-db",
+      "name": "subnet-db",
+      "category": "network",
+      "target_service_code": "AmazonVPC",
+      "target_resource_type": "aws_subnet",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "isolated",
+      "subnet_ref": "vpc-main",
+      "security_group_profile": "database-tier",
+      "spec": {
+        "cidr_block": "10.0.2.0/24",
+        "map_public_ip_on_launch": false,
+        "availability_zone": "us-east-1a"
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "contained_in",
+          "required": true
+        }
+      ],
+      "network_routes": []
+    },
+    {
+      "id": "sg-web-tier",
+      "name": "sg-web-tier",
+      "category": "network",
+      "target_service_code": "AmazonEC2",
+      "target_resource_type": "aws_security_group",
+      "deployment_tier": "prod",
+      "private_or_public": "private",
+      "spec": {
+        "ingress": [
+          {
+            "protocol": "tcp",
+            "from_port": 443,
+            "to_port": 443,
+            "sources": ["0.0.0.0/0"],
+            "description": "HTTPS from anywhere"
+          },
+          {
+            "protocol": "tcp",
+            "from_port": 80,
+            "to_port": 80,
+            "sources": ["0.0.0.0/0"],
+            "description": "HTTP redirect"
+          }
+        ],
+        "egress": [
+          {
+            "protocol": "-1",
+            "from_port": 0,
+            "to_port": 65535,
+            "destinations": ["0.0.0.0/0"],
+            "description": "All outbound"
+          }
+        ]
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "belongs_to",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sg-db-tier",
+      "name": "sg-db-tier",
+      "category": "network",
+      "target_service_code": "AmazonEC2",
+      "target_resource_type": "aws_security_group",
+      "deployment_tier": "prod",
+      "private_or_public": "isolated",
+      "spec": {
+        "ingress": [
+          {
+            "protocol": "tcp",
+            "from_port": 5432,
+            "to_port": 5432,
+            "sources": ["sg-web-tier", "10.0.1.0/24"],
+            "description": "PostgreSQL from web tier only"
+          }
+        ],
+        "egress": []
+      },
+      "dependencies": [
+        {
+          "target_id": "vpc-main",
+          "relationship": "belongs_to",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "vm-web-001",
+      "source_native_id": "projects/ecommerce-platform-prod/zones/us-central1-a/instances/web-server-001",
+      "name": "web-server-001",
+      "category": "compute",
+      "target_service_code": "AmazonEC2",
+      "target_resource_type": "aws_instance",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-web",
+      "security_group_profile": "sg-web-tier",
+      "spec": {
+        "instance_type": "t3.medium",
+        "vcpus": 2,
+        "memory_gb": 4,
+        "architecture": "x86_64",
+        "ami": "ami-0c55b159cbfafe1f0",
+        "root_volume_size_gb": 50,
+        "root_volume_type": "gp3",
+        "root_volume_iops": 3000,
+        "root_volume_encrypted": true,
+        "key_name": "ecommerce-prod-key",
+        "user_data": "#!/bin/bash\napt-get update && apt-get install -y nginx nodejs",
+        "monitoring": true,
+        "ebs_optimized": true
+      },
+      "runtime_constraints": {
+        "cpu_baseline_percent": 20,
+        "cpu_burst_percent": 100,
+        "autoscaling_enabled": true,
+        "min_instances": 2,
+        "max_instances": 10,
+        "target_cpu_utilization": 70,
+        "scale_up_cooldown_seconds": 300,
+        "scale_down_cooldown_seconds": 600
+      },
+      "dependencies": [
+        {
+          "target_id": "subnet-web",
+          "relationship": "runs_on",
+          "required": true,
+          "protocol": "internal"
+        },
+        {
+          "target_id": "sg-web-tier",
+          "relationship": "secured_by",
+          "required": true
+        },
+        {
+          "target_id": "postgres-main",
+          "relationship": "connects_to",
+          "required": true,
+          "protocol": "tcp",
+          "port": 5432
+        }
+      ]
+    },
+    {
+      "id": "bucket-static-assets",
+      "source_native_id": "projects/ecommerce-platform-prod/buckets/ecommerce-static-assets-prod",
+      "name": "ecommerce-static-assets-prod",
+      "category": "storage",
+      "target_service_code": "AmazonS3",
+      "target_resource_type": "aws_s3_bucket",
+      "deployment_tier": "prod",
+      "source_region": "us",
+      "target_region": "us-east-1",
+      "private_or_public": "public",
+      "spec": {
+        "bucket_name": "ecommerce-static-assets-prod",
+        "storage_class": "STANDARD",
+        "versioning_enabled": true,
+        "encryption": "AES256",
+        "block_public_acls": false,
+        "block_public_policy": false,
+        "ignore_public_acls": false,
+        "restrict_public_buckets": false,
+        "website": {
+          "index_document": "index.html",
+          "error_document": "error.html"
+        }
+      },
+      "data_migration_plan": {
+        "method": "s3_sync",
+        "estimated_size_bytes": 5368709120,
+        "estimated_object_count": 15420,
+        "transfer_window_hours": 4,
+        "backfill_method": "incremental_sync",
+        "validation_policy": "checksum_md5_sample_10pct",
+        "cutover_strategy": "dns_flip",
+        "rollback_window_minutes": 60
+      },
+      "dependencies": []
+    },
+    {
+      "id": "postgres-main",
+      "source_native_id": "projects/ecommerce-platform-prod/locations/us-central1/instances/ecommerce-db-primary",
+      "name": "ecommerce-db-primary",
+      "category": "database",
+      "target_service_code": "AmazonRDS",
+      "target_resource_type": "aws_db_instance",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "source_az": "us-central1-a",
+      "target_az": "us-east-1a",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-db",
+      "security_group_profile": "sg-db-tier",
+      "spec": {
+        "engine": "postgres",
+        "engine_version": "14.9",
+        "instance_class": "db.t3.medium",
+        "allocated_storage_gb": 500,
+        "max_allocated_storage_gb": 1000,
+        "storage_type": "gp3",
+        "storage_iops": 3000,
+        "storage_encrypted": true,
+        "kms_key_id": "alias/aws/rds",
+        "multi_az": true,
+        "publicly_accessible": false,
+        "db_name": "ecommerce_prod",
+        "port": 5432,
+        "backup_retention_period": 30,
+        "backup_window": "03:00-04:00",
+        "maintenance_window": "Mon:04:00-Mon:05:00",
+        "deletion_protection": true,
+        "performance_insights_enabled": true,
+        "performance_insights_retention_period": 7,
+        "enabled_cloudwatch_logs_exports": ["postgresql", "upgrade"],
+        "iam_database_authentication_enabled": false
+      },
+      "capacity_targets": {
+        "storage_size_gb": 500,
+        "expected_iops": 3000,
+        "expected_throughput_mbps": 125,
+        "expected_qps": 500,
+        "expected_connections": 100,
+        "peak_connections": 200
+      },
+      "data_migration_plan": {
+        "method": "dms_cdc",
+        "logical_replication": true,
+        "estimated_size_bytes": 268435456000,
+        "transfer_window_hours": 48,
+        "acceptable_replication_lag_seconds": 5,
+        "cutover_strategy": "blue_green",
+        "rollback_window_minutes": 120,
+        "validation_policy": "row_count_checksum"
+      },
+      "dependencies": [
+        {
+          "target_id": "subnet-db",
+          "relationship": "runs_on",
+          "required": true
+        },
+        {
+          "target_id": "sg-db-tier",
+          "relationship": "secured_by",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "secret-db-password",
+      "source_native_id": "projects/ecommerce-platform-prod/secrets/ecommerce-db-password",
+      "name": "ecommerce-db-password",
+      "category": "security",
+      "target_service_code": "AWSSecretsManager",
+      "target_resource_type": "aws_secretsmanager_secret",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "name": "ecommerce/db-password",
+        "description": "PostgreSQL admin password",
+        "kms_key_id": "alias/aws/secretsmanager",
+        "replica_regions": ["us-west-2"],
+        "rotation_enabled": true,
+        "rotation_lambda_arn": "arn:aws:lambda:us-east-1:123456789012:function:rotate-db-secret",
+        "rotation_rules": {
+          "automatically_after_days": 30
+        }
+      },
+      "dependencies": [
+        {
+          "target_id": "postgres-main",
+          "relationship": "used_by",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "role-web-servers",
+      "source_native_id": "projects/ecommerce-platform-prod/serviceAccounts/web-servers-sa@ecommerce-platform-prod.iam.gserviceaccount.com",
+      "name": "web-servers-role",
+      "category": "iam",
+      "target_service_code": "AWSIAM",
+      "target_resource_type": "aws_iam_role",
+      "deployment_tier": "prod",
+      "private_or_public": "private",
+      "spec": {
+        "role_name": "WebServersRole",
+        "assume_role_policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "managed_policy_arns": [
+          "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess",
+          "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+        ],
+        "inline_policies": [
+          {
+            "name": "RDSConnect",
+            "policy": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "rds-db:connect"
+                  ],
+                  "Resource": [
+                    "arn:aws:rds-db:us-east-1:123456789012:dbuser:db-web-servers"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "max_session_duration": 3600
+      },
+      "iam_bindings": [
+        {
+          "principal": "arn:aws:iam::123456789012:role/WebServersRole",
+          "resource_id": "bucket-static-assets",
+          "permission": "s3:GetObject,s3:ListBucket",
+          "condition": null
+        },
+        {
+          "principal": "arn:aws:iam::123456789012:role/WebServersRole",
+          "resource_id": "postgres-main",
+          "permission": "rds-db:connect",
+          "condition": null
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "function-order-processor",
+      "source_native_id": "projects/ecommerce-platform-prod/locations/us-central1/functions/process-order-events",
+      "name": "process-order-events",
+      "category": "serverless",
+      "target_service_code": "AWSLambda",
+      "target_resource_type": "aws_lambda_function",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "subnet_ref": "subnet-web",
+      "security_group_profile": "sg-web-tier",
+      "spec": {
+        "function_name": "process-order-events",
+        "runtime": "python3.11",
+        "handler": "lambda_function.lambda_handler",
+        "memory_size": 1024,
+        "timeout": 60,
+        "architecture": "x86_64",
+        "package_type": "Zip",
+        "filename": "s3://ecommerce-lambda-deployments/process-order-events-v1.zip",
+        "source_code_hash": "a1b2c3d4e5f6...",
+        "environment": {
+          "variables": {
+            "DB_HOST": "ecommerce-db-primary.xyz.us-east-1.rds.amazonaws.com",
+            "DB_NAME": "ecommerce_prod",
+            "LOG_LEVEL": "INFO"
+          }
+        },
+        "vpc_config": {
+          "subnet_ids": ["subnet-web"],
+          "security_group_ids": ["sg-web-tier"]
+        },
+        "tracing_config": {
+          "mode": "Active"
+        },
+        "reserved_concurrent_executions": 100
+      },
+      "runtime_constraints": {
+        "cpu_baseline": "memory_proportional",
+        "memory_mb": 1024,
+        "ephemeral_storage_mb": 512,
+        "cold_start_sensitivity": "medium",
+        "concurrency_ceiling": 100,
+        "provisioned_concurrency": 10,
+        "autoscaling_enabled": false
+      },
+      "dependencies": [
+        {
+          "target_id": "subnet-web",
+          "relationship": "runs_in",
+          "required": false
+        },
+        {
+          "target_id": "sg-web-tier",
+          "relationship": "secured_by",
+          "required": true
+        },
+        {
+          "target_id": "postgres-main",
+          "relationship": "writes_to",
+          "required": true,
+          "protocol": "tcp",
+          "port": 5432
+        },
+        {
+          "target_id": "sq-order-events",
+          "relationship": "triggered_by",
+          "required": true,
+          "protocol": "internal"
+        }
+      ]
+    },
+    {
+      "id": "sq-order-events",
+      "source_native_id": "projects/ecommerce-platform-prod/subscriptions/process-order-events-sub",
+      "name": "order-events-queue",
+      "category": "messaging",
+      "target_service_code": "AmazonSQS",
+      "target_resource_type": "aws_sqs_queue",
+      "deployment_tier": "prod",
+      "source_region": "us-central1",
+      "target_region": "us-east-1",
+      "private_or_public": "private",
+      "spec": {
+        "name": "order-events",
+        "fifo_queue": false,
+        "visibility_timeout_seconds": 60,
+        "message_retention_seconds": 345600,
+        "max_message_size": 262144,
+        "delay_seconds": 0,
+        "receive_wait_time_seconds": 0,
+        "redrive_policy": {
+          "dead_letter_target_arn": "arn:aws:sqs:us-east-1:123456789012:order-events-dlq",
+          "max_receive_count": 3
+        },
+        "kms_master_key_id": "alias/aws/sqs",
+        "sqs_managed_sse_enabled": true
+      },
+      "dependencies": [
+        {
+          "target_id": "function-order-processor",
+          "relationship": "triggers",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "migration_batches": [
+    ["vpc-main"],
+    ["subnet-web", "subnet-db", "sg-web-tier", "sg-db-tier"],
+    ["role-web-servers", "secret-db-password"],
+    ["bucket-static-assets"],
+    ["postgres-main"],
+    ["vm-web-001"],
+    ["sq-order-events"],
+    ["function-order-processor"]
+  ],
+  "operational_slo": {
+    "availability_percent": 99.9,
+    "latency_p99_ms": 500,
+    "error_rate_percent": 0.1,
+    "alert_thresholds": {
+      "cpu_utilization_percent": 80,
+      "memory_utilization_percent": 85,
+      "disk_utilization_percent": 90,
+      "connection_count": 180,
+      "replication_lag_seconds": 10
+    },
+    "rollback_triggers": {
+      "error_rate_spike": "5x baseline for 5 minutes",
+      "latency_spike": "2x p99 for 10 minutes",
+      "availability_drop": "below 99% for 2 minutes",
+      "failed_health_checks": "3 consecutive failures"
+    }
+  }
+}
